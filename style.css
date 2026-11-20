@@ -33,6 +33,27 @@ body {
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
 }
 
+/* ---- Título ---- */
+.title {
+  text-align: center;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 10px;
+  padding-left: 10px;
+  margin-bottom: 14px;
+}
+
+.title.hidden {
+  visibility: hidden;
+}
+
+.title span:nth-child(1) { color: #e57373; text-shadow: 0 0 12px #e5737388; }
+.title span:nth-child(2) { color: #ffb74d; text-shadow: 0 0 12px #ffb74d88; }
+.title span:nth-child(3) { color: #ffd54f; text-shadow: 0 0 12px #ffd54f88; }
+.title span:nth-child(4) { color: #81c784; text-shadow: 0 0 12px #81c78488; }
+.title span:nth-child(5) { color: #4dd0e1; text-shadow: 0 0 12px #4dd0e188; }
+.title span:nth-child(6) { color: #ba68c8; text-shadow: 0 0 12px #ba68c888; }
+
 /* ---- Panel lateral ---- */
 .panel {
   width: 160px;
