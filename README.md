@@ -103,7 +103,9 @@ Define la estructura visual:
 
 ### 2. `style.css`
 
-Aporta el aspecto visual con estética _dark / retro arcade_: fondo oscuro, tipografía monoespaciada para los marcadores y _backdrop blur_ en los overlays.
+Aporta el aspecto visual con estética _dark / retro arcade_: fondo oscuro, tipografía monoespaciada para los marcadores y _backdrop blur_ en los overlays. Los colores son variables CSS (`:root`) con el tema oscuro por defecto; `[data-theme="light"]` los sobrescribe para el modo claro.
+
+El interruptor **☀ Claro / ☾ Oscuro** junto al título alterna el tema (con el ratón o con `Tab` + `Enter`) y la elección se guarda en `localStorage`. El canvas lee sus colores (cuadrícula, brillo de las piezas) de las mismas variables.
 
 ### 3. `game.js`
 
@@ -158,7 +160,7 @@ Cuando una pieza recién generada ya colisiona al aparecer (`spawn`), se dispara
 ```
 03-tetris/
 ├── index.html      # Estructura del DOM y canvas
-├── style.css       # Estilos del juego (dark theme)
+├── style.css       # Estilos del juego (tema oscuro por defecto + modo claro)
 ├── game.js         # Toda la lógica del Tetris (~300 líneas)
 └── README.md
 ```
