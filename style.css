@@ -6,7 +6,7 @@
   --border: #2a2a3a;
   --grid: #22222e;
   --highlight: rgba(255, 255, 255, 0.12);
-  --shadow: var(--shadow);
+  --shadow: rgba(0, 0, 0, 0.6);
   --label: #555570;
   --muted: #888;
   --accent: #7aa2f7;
