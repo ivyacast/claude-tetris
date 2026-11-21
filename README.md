@@ -43,6 +43,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
 - **Power-up bomba** 💣: una pieza especial 2×2, café e intermitente, que al aterrizar destruye un área de 3×3 bajo ella.
+- **Barra de energía** ⚡ de 5 espacios, que se llena limpiando líneas. Llena, permite **intercambiar la pieza actual con la siguiente**.
 - **Pausa** y **Game Over** con opción de reinicio.
 
 ---
@@ -86,6 +87,7 @@ Después abre `http://localhost:8000` en el navegador.
 | `↑` o `X` | Rotar la pieza en sentido horario |
 | `↓`       | Soft drop (bajar más rápido)      |
 | `Espacio` | Hard drop (caída instantánea)     |
+| `C`       | Intercambiar la pieza actual con la siguiente (requiere la barra de energía llena) |
 | `P`       | Pausar / reanudar                 |
 
 ---
@@ -127,6 +129,10 @@ Contiene toda la lógica del juego. A grandes rasgos:
   - Nunca salen dos bombas seguidas, y la bomba aparece primero en el panel de la siguiente pieza.
   - Al aterrizar no se queda en el tablero: destruye las **3 filas justo debajo** de ella, en sus 2 columnas más la columna vecina (izquierda o derecha) que tenga más bloques.
   - Suma `BOMB_CELL_SCORE × nivel` por bloque destruido. Los bloques que queden encima no caen.
+- **Energía e intercambio** (`energy`, `swapPiece`):
+  - Cada línea limpiada suma 1 espacio a la barra, hasta `ENERGY_MAX` (5).
+  - Con la barra llena, la barra brilla y `C` intercambia la pieza actual con la siguiente. La pieza que entra ocupa la posición de la actual (con los mismos desplazamientos que la rotación si no cabe), y la que sale vuelve al panel de la siguiente pieza sin rotar.
+  - Intercambiar gasta la barra entera. Si la pieza nueva no cabe, no ocurre nada y la energía se conserva.
 
 ### Flujo del juego
 
@@ -191,6 +197,7 @@ Algunos parámetros fáciles de tunear en `game.js`:
 | `BOMB_DANGER_CHANCE` | Probabilidad de la tirada de peligro (1 por nivel) | `0.7` |
 | `DANGER_ROWS`        | Filas superiores que cuentan como peligro        | `6`   |
 | `BOMB_CELL_SCORE`    | Puntos por bloque destruido (× nivel)            | `10`  |
+| `ENERGY_MAX`         | Espacios de la barra de energía (1 por línea)    | `5`   |
 
 > Si cambias `COLS`, `ROWS` o `BLOCK`, recuerda ajustar también `width` y `height` del `<canvas id="board">` en `index.html` para que coincida (`COLS × BLOCK` × `ROWS × BLOCK`).
 

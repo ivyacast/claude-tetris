@@ -37,6 +37,9 @@ const BOMB_CHANCE = 0.3;        // chance of that roll
 const BOMB_DANGER_CHANCE = 0.7; // chance of the once-per-level roll when in danger
 const DANGER_ROWS = 6;          // any locked block in the top N rows = danger
 const BOMB_CELL_SCORE = 10;     // points per destroyed block (× level)
+
+// Energy: +1 per cleared line; a full bar unlocks abilities (swap)
+const ENERGY_MAX = 5;
 const BLINK_MS = 250;           // bomb blink half-period
 const EXPLOSION_MS = 300;       // explosion flash duration
 
@@ -47,6 +50,8 @@ const nextCtx = nextCanvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
+const energyEl = document.getElementById('energy');
+const energySegments = energyEl.querySelectorAll('.energy-segment');
 const overlay = document.getElementById('overlay');
 const gameTitle = document.getElementById('game-title');
 const overlayTitle = document.getElementById('overlay-title');
@@ -67,21 +72,24 @@ function refreshThemeColors() {
 }
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
-let bombQueued, dangerRollUsed, explosion;
+let bombQueued, dangerRollUsed, explosion, energy;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
-function randomPiece() {
-  const type = Math.floor(Math.random() * 7) + 1;
+// Fresh piece of a given type, unrotated, at its spawn position
+function makePiece(type) {
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
 
+function randomPiece() {
+  return makePiece(Math.floor(Math.random() * 7) + 1);
+}
+
 function bombPiece() {
-  const shape = PIECES[BOMB].map(row => [...row]);
-  return { type: BOMB, shape, x: Math.floor(COLS / 2) - 1, y: 0 };
+  return makePiece(BOMB);
 }
 
 function inDanger() {
@@ -124,6 +132,22 @@ function rotateCW(shape) {
   return result;
 }
 
+// Ability (needs a full energy bar): swap the current piece with the next one.
+// The incoming piece takes the current position (with the rotation kicks);
+// the outgoing one goes back to the preview in its spawn state.
+function swapPiece() {
+  if (energy < ENERGY_MAX) return;
+  const incoming = { ...next, shape: next.shape.map(row => [...row]), y: current.y };
+  const baseX = current.x;
+  const kick = [0, -1, 1, -2, 2].find(k => !collide(incoming.shape, baseX + k, incoming.y));
+  if (kick === undefined) return; // doesn't fit: keep the energy
+  incoming.x = baseX + kick;
+  next = makePiece(current.type);
+  current = incoming;
+  energy = 0;
+  drawNext();
+}
+
 function tryRotate() {
   const rotated = rotateCW(current.shape);
   const kicks = [0, -1, 1, -2, 2];
@@ -160,6 +184,7 @@ function clearLines() {
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
     if (level > prevLevel) dangerRollUsed = false;
+    energy = Math.min(ENERGY_MAX, energy + cleared);
     if (Math.floor(lines / BOMB_EVERY_LINES) > Math.floor(prevLines / BOMB_EVERY_LINES)
         && Math.random() < BOMB_CHANCE) {
       bombQueued = true;
@@ -240,6 +265,8 @@ function updateHUD() {
   scoreEl.textContent = score.toLocaleString();
   linesEl.textContent = lines;
   levelEl.textContent = level;
+  energySegments.forEach((seg, i) => seg.classList.toggle('filled', i < energy));
+  energyEl.classList.toggle('ready', energy >= ENERGY_MAX);
 }
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
@@ -411,6 +438,7 @@ function init() {
   bombQueued = false;
   dangerRollUsed = false;
   explosion = null;
+  energy = 0;
   current = null;
   next = randomPiece();
   spawn();
@@ -437,6 +465,9 @@ document.addEventListener('keydown', e => {
     case 'ArrowUp':
     case 'KeyX':
       tryRotate();
+      break;
+    case 'KeyC':
+      swapPiece();
       break;
     case 'Space':
       e.preventDefault();

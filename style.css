@@ -138,6 +138,48 @@ body {
   border-radius: 4px;
 }
 
+/* ---- Energía ---- */
+.energy {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  width: 120px;
+}
+
+.energy-segment {
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--board-bg);
+  transition: background 0.2s;
+}
+
+.energy-segment.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.energy.ready .energy-segment {
+  background: #ffd54f;
+  border-color: #ffd54f;
+  animation: energy-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes energy-pulse {
+  from { box-shadow: 0 0 2px #ffd54f88; }
+  to   { box-shadow: 0 0 10px #ffd54f; }
+}
+
+.energy-hint {
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.4;
+}
+
+.energy.ready + .energy-hint {
+  opacity: 1;
+}
+
 /* ---- Controles ---- */
 .controls ul {
   list-style: none;
