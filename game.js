@@ -156,11 +156,14 @@ function lockPiece() {
 }
 
 function spawn() {
+  // Check before promoting `next`, so a piece that doesn't fit is never drawn
+  if (collide(next.shape, next.x, next.y)) {
+    current = null; // no active piece on game over
+    endGame();
+    return;
+  }
   current = next;
   next = randomPiece();
-  if (collide(current.shape, current.x, current.y)) {
-    endGame();
-  }
   drawNext();
 }
 
@@ -208,6 +211,8 @@ function draw() {
     for (let c = 0; c < COLS; c++)
       drawBlock(ctx, c, r, board[r][c], BLOCK);
 
+  if (!current) return; // game over: board only
+
   // ghost
   const gy = ghostY();
   for (let r = 0; r < current.shape.length; r++)
@@ -235,6 +240,7 @@ function drawNext() {
 function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
+  draw(); // show the last locked piece even when the game ends from a key press
   gameTitle.classList.add('hidden');
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
@@ -268,6 +274,9 @@ function loop(ts) {
     }
   }
   draw();
+  // endGame() may have run inside lockPiece() during this frame; its
+  // cancelAnimationFrame() targets the frame already executing, so stop here.
+  if (gameOver) return;
   animId = requestAnimationFrame(loop);
 }
 
@@ -325,7 +334,7 @@ function applyTheme(light) {
   themeToggle.setAttribute('aria-label', light ? 'Modo oscuro' : 'Modo claro');
   refreshThemeColors();
   // Repaint immediately (needed when paused or on game over)
-  if (current) draw();
+  if (board) draw();
   if (next) drawNext();
 }
 
