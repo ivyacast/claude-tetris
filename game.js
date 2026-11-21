@@ -40,6 +40,19 @@ const gameTitle = document.getElementById('game-title');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
+const themeToggle = document.getElementById('theme-toggle');
+
+// Canvas colors come from CSS variables; cached on theme change
+let gridColor, highlightColor;
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function refreshThemeColors() {
+  gridColor = cssVar('--grid');
+  highlightColor = cssVar('--highlight');
+}
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
@@ -164,13 +177,13 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
   context.fillStyle = color;
   context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
   // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
+  context.fillStyle = highlightColor;
   context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
   context.globalAlpha = 1;
 }
 
 function drawGrid() {
-  ctx.strokeStyle = '#22222e';
+  ctx.strokeStyle = gridColor;
   ctx.lineWidth = 0.5;
   for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
@@ -303,5 +316,26 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+
+function applyTheme(light) {
+  if (light) document.documentElement.dataset.theme = 'light';
+  else delete document.documentElement.dataset.theme;
+  themeToggle.setAttribute('aria-checked', String(light));
+  themeToggle.textContent = light ? '☾ Oscuro' : '☀ Claro';
+  themeToggle.setAttribute('aria-label', light ? 'Modo oscuro' : 'Modo claro');
+  refreshThemeColors();
+  // Repaint immediately (needed when paused or on game over)
+  if (current) draw();
+  if (next) drawNext();
+}
+
+themeToggle.addEventListener('click', () => {
+  const light = document.documentElement.dataset.theme !== 'light';
+  try { localStorage.setItem('theme', light ? 'light' : 'dark'); } catch (e) {}
+  applyTheme(light);
+  themeToggle.blur(); // keep Space (hard drop) from re-triggering the button
+});
+
+applyTheme(document.documentElement.dataset.theme === 'light');
 
 init();
