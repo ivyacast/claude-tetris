@@ -42,6 +42,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Vista previa** de la siguiente pieza.
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
+- **Power-up bomba** 💣: una pieza especial 2×2, café e intermitente, que al aterrizar destruye un área de 3×3 bajo ella.
 - **Pausa** y **Game Over** con opción de reinicio.
 
 ---
@@ -120,6 +121,12 @@ Contiene toda la lógica del juego. A grandes rasgos:
 - **Puntuación**: usa la tabla clásica `[0, 100, 300, 500, 800]` multiplicada por el nivel actual; el hard drop suma 2 puntos por celda recorrida y el soft drop 1 punto por fila.
 - **Nivel y velocidad**: el nivel sube cada 10 líneas; la velocidad de caída se calcula como `max(100, 1000 − (level − 1) × 90)` milisegundos.
 - **Ghost piece** (`ghostY`): proyecta la posición final de la pieza actual hacia abajo y la dibuja con `globalAlpha = 0.2`.
+- **Bomba** (`nextPiece`, `explode`): es la pieza tipo `8`, que nunca sale en el sorteo normal (`randomPiece`).
+  - Cada `BOMB_EVERY_LINES` líneas completadas hay un `BOMB_CHANCE` de probabilidad de que la siguiente pieza sea una bomba.
+  - Si hay bloques en las `DANGER_ROWS` filas superiores (estás a punto de perder), se hace **una sola tirada por nivel** con `BOMB_DANGER_CHANCE`, salga o no la bomba.
+  - Nunca salen dos bombas seguidas, y la bomba aparece primero en el panel de la siguiente pieza.
+  - Al aterrizar no se queda en el tablero: destruye las **3 filas justo debajo** de ella, en sus 2 columnas más la columna vecina (izquierda o derecha) que tenga más bloques.
+  - Suma `BOMB_CELL_SCORE × nivel` por bloque destruido. Los bloques que queden encima no caen.
 
 ### Flujo del juego
 
@@ -179,6 +186,11 @@ Algunos parámetros fáciles de tunear en `game.js`:
 | `COLORS`       | Paleta de colores por tipo de pieza      | 7 colores             |
 | `LINE_SCORES`  | Puntos por 1, 2, 3 o 4 líneas eliminadas | `[0,100,300,500,800]` |
 | `dropInterval` | Velocidad inicial de caída en ms         | `1000`                |
+| `BOMB_EVERY_LINES`   | Cada cuántas líneas se sortea una bomba          | `5`   |
+| `BOMB_CHANCE`        | Probabilidad de bomba en ese sorteo              | `0.3` |
+| `BOMB_DANGER_CHANCE` | Probabilidad de la tirada de peligro (1 por nivel) | `0.7` |
+| `DANGER_ROWS`        | Filas superiores que cuentan como peligro        | `6`   |
+| `BOMB_CELL_SCORE`    | Puntos por bloque destruido (× nivel)            | `10`  |
 
 > Si cambias `COLS`, `ROWS` o `BLOCK`, recuerda ajustar también `width` y `height` del `<canvas id="board">` en `index.html` para que coincida (`COLS × BLOCK` × `ROWS × BLOCK`).
 

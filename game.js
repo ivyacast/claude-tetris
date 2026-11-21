@@ -13,6 +13,7 @@ const COLORS = [
   '#e57373', // Z - red
   '#f06292', // J - fuchsia
   '#ffb74d', // L - orange
+  '#8d5a3b', // bomb - brown
 ];
 
 const PIECES = [
@@ -24,9 +25,20 @@ const PIECES = [
   [[5,5,0],[0,5,5],[0,0,0]],                  // Z
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
+  [[8,8],[8,8]],                               // bomb (power-up, never from randomPiece)
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
+
+// Bomb power-up
+const BOMB = 8;
+const BOMB_EVERY_LINES = 5;     // roll for a bomb every N cleared lines
+const BOMB_CHANCE = 0.3;        // chance of that roll
+const BOMB_DANGER_CHANCE = 0.7; // chance of the once-per-level roll when in danger
+const DANGER_ROWS = 6;          // any locked block in the top N rows = danger
+const BOMB_CELL_SCORE = 10;     // points per destroyed block (× level)
+const BLINK_MS = 250;           // bomb blink half-period
+const EXPLOSION_MS = 300;       // explosion flash duration
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -55,6 +67,7 @@ function refreshThemeColors() {
 }
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let bombQueued, dangerRollUsed, explosion;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -64,6 +77,29 @@ function randomPiece() {
   const type = Math.floor(Math.random() * 7) + 1;
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+}
+
+function bombPiece() {
+  const shape = PIECES[BOMB].map(row => [...row]);
+  return { type: BOMB, shape, x: Math.floor(COLS / 2) - 1, y: 0 };
+}
+
+function inDanger() {
+  return board.slice(0, DANGER_ROWS).some(row => row.some(Boolean));
+}
+
+// Decides the upcoming piece; never two bombs in a row
+function nextPiece() {
+  if (current && current.type === BOMB) return randomPiece();
+  if (bombQueued) {
+    bombQueued = false;
+    return bombPiece();
+  }
+  if (!dangerRollUsed && inDanger()) {
+    dangerRollUsed = true; // one boosted roll per level, hit or miss
+    if (Math.random() < BOMB_DANGER_CHANCE) return bombPiece();
+  }
+  return randomPiece();
 }
 
 function collide(shape, ox, oy) {
@@ -118,12 +154,44 @@ function clearLines() {
     }
   }
   if (cleared) {
+    const prevLines = lines, prevLevel = level;
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    if (level > prevLevel) dangerRollUsed = false;
+    if (Math.floor(lines / BOMB_EVERY_LINES) > Math.floor(prevLines / BOMB_EVERY_LINES)
+        && Math.random() < BOMB_CHANCE) {
+      bombQueued = true;
+    }
     updateHUD();
   }
+}
+
+// Destroys the 3x3 area right below the bomb: its 2 columns plus the
+// neighbouring column (left or right) that holds more blocks
+function explode() {
+  const { x, y } = current;
+  const rows = [];
+  for (let r = y + 2; r <= y + 4 && r < ROWS; r++) rows.push(r);
+  const left = x - 1, right = x + 2; // at most one of them is off-board
+  const countCol = c => rows.filter(r => board[r][c]).length;
+  let extra;
+  if (left < 0) extra = right;
+  else if (right >= COLS) extra = left;
+  else extra = countCol(left) > countCol(right) ? left : right;
+  const cols = [x, x + 1, extra];
+  const cells = [];
+  let destroyed = 0;
+  for (const r of rows)
+    for (const c of cols) {
+      if (board[r][c]) destroyed++;
+      board[r][c] = 0;
+      cells.push([c, r]);
+    }
+  score += destroyed * BOMB_CELL_SCORE * level;
+  explosion = { cells, t: performance.now() };
+  updateHUD();
 }
 
 function ghostY() {
@@ -150,7 +218,8 @@ function softDrop() {
 }
 
 function lockPiece() {
-  merge();
+  if (current.type === BOMB) explode();
+  else merge();
   clearLines();
   spawn();
 }
@@ -163,7 +232,7 @@ function spawn() {
     return;
   }
   current = next;
-  next = randomPiece();
+  next = nextPiece();
   drawNext();
 }
 
@@ -182,6 +251,30 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
   // highlight
   context.fillStyle = highlightColor;
   context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  context.globalAlpha = 1;
+}
+
+// 2x2 brown bomb with a lit fuse; (x, y) is its top-left cell. Blinks.
+function drawBomb(context, x, y, size, alpha) {
+  const on = Math.floor(performance.now() / BLINK_MS) % 2 === 0;
+  const a = (alpha ?? 1) * (on ? 1 : 0.45);
+  for (let r = 0; r < 2; r++)
+    for (let c = 0; c < 2; c++)
+      drawBlock(context, x + c, y + r, BOMB, size, a);
+
+  // fuse curling up to the top-right corner, with a spark at its tip
+  const cx = (x + 1) * size, cy = y * size;
+  context.globalAlpha = a;
+  context.strokeStyle = '#2b1a10';
+  context.lineWidth = Math.max(2, size / 10);
+  context.beginPath();
+  context.moveTo(cx + size * 0.3, cy + size * 0.6);
+  context.quadraticCurveTo(cx + size * 0.45, cy + size * 0.25, cx + size * 0.75, cy + size * 0.3);
+  context.stroke();
+  context.fillStyle = on ? '#ffeb3b' : '#ff7043';
+  context.beginPath();
+  context.arc(cx + size * 0.75, cy + size * 0.3, size * (on ? 0.16 : 0.11), 0, Math.PI * 2);
+  context.fill();
   context.globalAlpha = 1;
 }
 
@@ -211,10 +304,30 @@ function draw() {
     for (let c = 0; c < COLS; c++)
       drawBlock(ctx, c, r, board[r][c], BLOCK);
 
+  // explosion flash, fading out
+  if (explosion) {
+    const k = 1 - (performance.now() - explosion.t) / EXPLOSION_MS;
+    if (k <= 0) {
+      explosion = null;
+    } else {
+      ctx.globalAlpha = 0.8 * k;
+      ctx.fillStyle = '#ff9800';
+      for (const [c, r] of explosion.cells)
+        ctx.fillRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
+      ctx.globalAlpha = 1;
+    }
+  }
+
   if (!current) return; // game over: board only
 
-  // ghost
   const gy = ghostY();
+  if (current.type === BOMB) {
+    drawBomb(ctx, current.x, gy, BLOCK, 0.2);
+    drawBomb(ctx, current.x, current.y, BLOCK);
+    return;
+  }
+
+  // ghost
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++)
       if (current.shape[r][c])
@@ -232,6 +345,10 @@ function drawNext() {
   const shape = next.shape;
   const offX = Math.floor((4 - shape[0].length) / 2);
   const offY = Math.floor((4 - shape.length) / 2);
+  if (next.type === BOMB) {
+    drawBomb(nextCtx, offX, offY, NB);
+    return;
+  }
   for (let r = 0; r < shape.length; r++)
     for (let c = 0; c < shape[r].length; c++)
       drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
@@ -274,6 +391,7 @@ function loop(ts) {
     }
   }
   draw();
+  if (next.type === BOMB) drawNext(); // keep the preview blinking
   // endGame() may have run inside lockPiece() during this frame; its
   // cancelAnimationFrame() targets the frame already executing, so stop here.
   if (gameOver) return;
@@ -290,6 +408,10 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   lastTime = performance.now();
+  bombQueued = false;
+  dangerRollUsed = false;
+  explosion = null;
+  current = null;
   next = randomPiece();
   spawn();
   updateHUD();
